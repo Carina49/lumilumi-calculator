@@ -409,21 +409,9 @@
 
       <div class="section-label">订阅收入</div>
       <div class="field">
-        <label>基础版月价</label>
-        <div class="input-wrap">
-          <span class="unit">¥</span><input type="number" id="priceBasic" value="19.9" step="1">
-        </div>
-      </div>
-      <div class="field">
         <label>专业版月价</label>
         <div class="input-wrap">
           <span class="unit">¥</span><input type="number" id="pricePro" value="39.9" step="1">
-        </div>
-      </div>
-      <div class="field">
-        <label>基础版占付费用户比</label>
-        <div class="input-wrap">
-          <input type="number" id="ratioBasic" value="60" min="0" max="100"> <span class="unit">%</span>
         </div>
       </div>
       <div class="field">
@@ -778,9 +766,9 @@ function calc() {
   const avgSalary = v('avgSalary');
   const serverCost = v('serverCost');
   const otherCost = v('otherCost');
-  const priceBasic = v('priceBasic');
+  const priceBasic = v('priceBasic') || 0;
   const pricePro = v('pricePro');
-  const ratioBasic = v('ratioBasic') / 100;
+  const ratioBasic = (v('ratioBasic') || 0) / 100;
   const convRate = v('conversionRate') / 100;
   const dressUpRate = v('dressUpRate') / 100;
   const dressUpArppu = v('dressUpArppu');
@@ -807,8 +795,7 @@ function calc() {
   $('fixedCostTotal').textContent = fmtY(fixedCost) + ' /月';
 
   // --- ARPU (综合，均摊到每个 MAU) ---
-  const ratioPro = 1 - ratioBasic;
-  const subArpu = priceBasic * ratioBasic + pricePro * ratioPro; // 订阅 ARPU（每付费用户）
+  const subArpu = pricePro; // 订阅 ARPU（每付费用户）= 专业版月价
   const subPerMAU = subArpu * convRate; // 订阅收入均摊到每 MAU
   const dressUpPerMAU = dressUpRate * dressUpArppu; // 装扮收入均摊到每 MAU
   const txPerMAU = txRate * txGMV * txCommission; // 抽佣收入均摊到每 MAU
