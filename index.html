@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LumiLumi 成本推导计算器</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface2: #f0f0f4;
+    --border: #e0e0e8;
+    --text: #1d1d1f;
+    --text2: #6e6e80;
+    --accent: #5856d6;
+    --accent2: #4a48c4;
+    --green: #00856f;
+    --yellow: #c59000;
+    --red: #d63031;
+    --orange: #c44e28;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .app {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 32px 24px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p {
+    color: var(--text2);
+    font-size: 14px;
+    margin-top: 6px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 800px) {
+    .grid { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .card.full { grid-column: 1 / -1; }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  .field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .field:last-child { border-bottom: none; }
+
+  .field label {
+    font-size: 13px;
+    color: var(--text2);
+    flex-shrink: 0;
+  }
+
+  .field .input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .field .unit {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  input[type="number"] {
+    width: 100px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  input[type="number"]::-webkit-inner-spin-button {
+    opacity: 0.3;
+  }
+
+  .result {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--green);
+    text-align: right;
+    min-width: 100px;
+  }
+  .result.warn { color: var(--yellow); }
+  .result.bad { color: var(--red); }
+
+  .big-number {
+    text-align: center;
+    padding: 20px 0;
+  }
+  .big-number .value {
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+  .big-number .label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  @media (max-width: 800px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi .kpi-value {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .kpi .kpi-label {
+    font-size: 11px;
+    color: var(--text2);
+    margin-top: 4px;
+  }
+
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.data-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.data-table td {
+    padding: 7px 6px;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    font-variant-numeric: tabular-nums;
+  }
+  table.data-table tr.highlight td {
+    background: rgba(88,86,214,0.06);
+    font-weight: 600;
+  }
+  table.data-table .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .tag.ok { background: rgba(0,133,111,0.10); color: var(--green); }
+  .tag.warn { background: rgba(197,144,0,0.10); color: var(--yellow); }
+  .tag.bad { background: rgba(214,48,49,0.10); color: var(--red); }
+
+  .traffic-light {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .light {
+    flex: 1;
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    border: 2px solid transparent;
+    opacity: 0.35;
+    transition: all 0.3s;
+  }
+  .light.active { opacity: 1; }
+  .light.green { background: rgba(0,133,111,0.06); border-color: var(--green); }
+  .light.yellow { background: rgba(197,144,0,0.06); border-color: var(--yellow); }
+  .light.red { background: rgba(214,48,49,0.06); border-color: var(--red); }
+  .light .emoji { font-size: 28px; }
+  .light .light-label { font-size: 13px; font-weight: 600; margin-top: 4px; }
+  .light .light-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  .section-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin: 12px 0 8px;
+    font-weight: 600;
+  }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 120px;
+    padding-top: 8px;
+  }
+  .bar-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .bar {
+    width: 100%;
+    border-radius: 4px 4px 0 0;
+    transition: height 0.4s ease;
+    min-height: 2px;
+  }
+  .bar.revenue { background: var(--green); }
+  .bar.cost { background: var(--red); opacity: 0.35; }
+  .bar-label {
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 4px;
+    text-align: center;
+  }
+  .bar-val {
+    font-size: 10px;
+    color: var(--text);
+    margin-bottom: 3px;
+    font-weight: 600;
+  }
+
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--text2);
+  }
+  .legend span::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+  .legend .l-rev::before { background: var(--green); }
+  .legend .l-cost::before { background: var(--red); opacity: 0.35; }
+
+  footer {
+    text-align: center;
+    color: var(--text2);
+    font-size: 11px;
+    margin-top: 40px;
+    padding-bottom: 32px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>LumiLumi 成本推导计算器</h1>
+    <p>修改参数，实时计算财务健康度</p>
+
+    <!-- 配置管理 -->
+    <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap">
+      <select id="configSelect" style="padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;min-width:200px">
+        <option value="default">默认配置</option>
+      </select>
+      <button onclick="saveConfig()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer">💾 保存当前配置</button>
+      <button onclick="newConfig()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">➕ 新建配置</button>
+      <button onclick="deleteConfig()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--red);background:var(--surface);color:var(--red);font-size:13px;font-weight:600;cursor:pointer">🗑️ 删除</button>
+      <button onclick="shareURL()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--accent);background:var(--surface);color:var(--accent);font-size:13px;font-weight:600;cursor:pointer">🔗 分享链接</button>
+      <button onclick="exportConfig()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--green);background:var(--surface);color:var(--green);font-size:13px;font-weight:600;cursor:pointer">📤 导出</button>
+      <button onclick="importConfig()" style="padding:8px 16px;border-radius:6px;border:1px solid var(--green);background:var(--surface);color:var(--green);font-size:13px;font-weight:600;cursor:pointer">📥 导入</button>
+    </div>
+  </header>
+
+  <!-- KPI Row -->
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi" style="border:2px solid var(--accent);position:relative">
+      <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50);background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap;letter-spacing:0.5px">&#x2B50; 北极星指标</div>
+      <div class="kpi-value" id="kpi_ltv" style="color:var(--green)">--</div>
+      <div class="kpi-label">LTV（用户生命周期价值）</div>
+    </div>
+    <div class="kpi" style="border:2px solid var(--accent);position:relative">
+      <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50);background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap;letter-spacing:0.5px">&#x2B50; 北极星指标</div>
+      <div class="kpi-value" id="kpi_ratio" style="color:var(--accent2)">--</div>
+      <div class="kpi-label">LTV / CAC（生命周期价值 / 获客成本）</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value" id="kpi_breakeven" style="color:var(--yellow)">--</div>
+      <div class="kpi-label">盈亏平衡 MAU（月活用户数）</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-value" id="kpi_payback" style="color:var(--orange)">--</div>
+      <div class="kpi-label">CAC 回本周期（获客成本回收时间）</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 团队与固定成本 -->
+    <div class="card">
+      <div class="card-title">团队与固定成本</div>
+      <div class="field">
+        <label>团队人数</label>
+        <div class="input-wrap">
+          <input type="number" id="teamSize" value="3" min="1" max="50"> <span class="unit">人</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>月均工资（含社保）</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="avgSalary" value="15000" step="1000"> <span class="unit">/人</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>服务器基础费用</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="serverCost" value="3500" step="500"> <span class="unit">/月</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>其他运营成本</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="otherCost" value="2000" step="500"> <span class="unit">/月</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>固定成本合计</label>
+        <div class="result" id="fixedCostTotal">--</div>
+      </div>
+    </div>
+
+    <!-- 收入参数 -->
+    <div class="card">
+      <div class="card-title">收入参数</div>
+
+      <div class="section-label">订阅收入</div>
+      <div class="field">
+        <label>基础版月价</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="priceBasic" value="19.9" step="1">
+        </div>
+      </div>
+      <div class="field">
+        <label>专业版月价</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="pricePro" value="39.9" step="1">
+        </div>
+      </div>
+      <div class="field">
+        <label>基础版占付费用户比</label>
+        <div class="input-wrap">
+          <input type="number" id="ratioBasic" value="60" min="0" max="100"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>付费转化率（免费→订阅）</label>
+        <div class="input-wrap">
+          <input type="number" id="conversionRate" value="5" min="0.1" max="100" step="0.5"> <span class="unit">%</span>
+        </div>
+      </div>
+
+      <div class="section-label">装扮付费（虚拟形象、主题皮肤等）</div>
+      <div class="field">
+        <label>装扮付费渗透率（MAU 中购买比例）</label>
+        <div class="input-wrap">
+          <input type="number" id="dressUpRate" value="8" min="0" max="100" step="0.5"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>装扮 ARPPU（每付费用户月均消费）</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="dressUpArppu" value="12" step="1" min="0">
+        </div>
+      </div>
+
+      <div class="section-label">交易抽佣（礼物推荐购买、机票推荐购买）</div>
+      <div class="field">
+        <label>交易用户渗透率（MAU 中交易比例）</label>
+        <div class="input-wrap">
+          <input type="number" id="txRate" value="3" min="0" max="100" step="0.5"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>人均月交易额</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="txGMV" value="50" step="5" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label>平台抽佣比例</label>
+        <div class="input-wrap">
+          <input type="number" id="txCommission" value="15" min="0" max="100" step="1"> <span class="unit">%</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="field">
+        <label>订阅 ARPU（每付费用户）</label>
+        <div class="result" id="subArpuResult">--</div>
+      </div>
+      <div class="field">
+        <label>装扮收入（每 MAU 均摊）</label>
+        <div class="result" id="dressUpResult">--</div>
+      </div>
+      <div class="field">
+        <label>抽佣收入（每 MAU 均摊）</label>
+        <div class="result" id="txResult">--</div>
+      </div>
+      <div class="divider"></div>
+      <div class="field" style="font-weight:600">
+        <label>综合 ARPU（每 MAU 均摊总收入）</label>
+        <div class="result" id="arpuResult">--</div>
+      </div>
+      <div class="field">
+        <label>单位贡献利润（每 MAU）</label>
+        <div class="result" id="contributionResult">--</div>
+      </div>
+    </div>
+
+    <!-- Token 与可变成本 -->
+    <div class="card">
+      <div class="card-title">Token 与可变成本</div>
+      <div class="field">
+        <label>每用户日均消息数</label>
+        <div class="input-wrap">
+          <input type="number" id="msgPerDay" value="50" min="1"> <span class="unit">条</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>每条消息平均 Token</label>
+        <div class="input-wrap">
+          <input type="number" id="tokensPerMsg" value="100" min="10"> <span class="unit">tokens</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>输入 Token 单价</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="inputPrice" value="0.30" step="0.01" min="0"> <span class="unit">/M</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>输出 Token 单价</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="outputPrice" value="0.60" step="0.01" min="0"> <span class="unit">/M</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>服务器扩容 / 用户</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="serverPerUser" value="1.00" step="0.1" min="0"> <span class="unit">/月</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>带宽存储 / 用户</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="bandwidthPerUser" value="0.50" step="0.1" min="0"> <span class="unit">/月</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>Token 成本 / 用户 / 月</label>
+        <div class="result" id="tokenCostResult">--</div>
+      </div>
+      <div class="field">
+        <label>可变成本合计 / 用户</label>
+        <div class="result" id="varCostResult">--</div>
+      </div>
+    </div>
+
+    <!-- 获客与留存 -->
+    <div class="card">
+      <div class="card-title">获客与留存（CAC = 获客成本）</div>
+      <div class="field">
+        <label>自然增长 CAC（获客成本）</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="cacOrganic" value="30" step="5">
+        </div>
+      </div>
+      <div class="field">
+        <label>自然增长占比</label>
+        <div class="input-wrap">
+          <input type="number" id="ratioOrganic" value="40" min="0" max="100"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>投放 CAC（付费渠道获客成本）</label>
+        <div class="input-wrap">
+          <span class="unit">¥</span><input type="number" id="cacPaid" value="160" step="10">
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>加权 CAC（综合获客成本）</label>
+        <div class="result" id="cacResult">--</div>
+      </div>
+
+      <div class="section-label">留存参数</div>
+      <div class="field">
+        <label>D1 次日留存（第2天还在用的用户比例）</label>
+        <div class="input-wrap">
+          <input type="number" id="d1" value="50" min="0" max="100"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>D7 七日留存（第7天还在用的用户比例）</label>
+        <div class="input-wrap">
+          <input type="number" id="d7" value="35" min="0" max="100"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="field">
+        <label>推算 D30（30天留存，全体用户）</label>
+        <div class="result" id="d30Result">--</div>
+      </div>
+      <div class="field">
+        <label>付费用户月留存</label>
+        <div class="result" id="paidRetentionResult">--</div>
+      </div>
+    </div>
+
+    <!-- 分阶段留存指标 -->
+    <div class="card full">
+      <div class="card-title">分阶段留存指标 & 财务红线</div>
+
+      <div style="background:rgba(214,48,49,0.08);border:2px solid var(--red);border-radius:8px;padding:16px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <span style="font-size:20px">🚨</span>
+          <strong style="color:var(--red);font-size:14px">财务红线（项目可持续最低要求）</strong>
+        </div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.8">
+          <div>• <strong>LTV/CAC ≥ 1.0</strong>（每获取1个用户至少赚回成本）</div>
+          <div>• <strong>月留存率红线</strong>：根据当前 CAC 和贡献利润动态计算（见下方表格 🚨 标注行）</div>
+          <div>• <strong>日均消息 ≥ 15条</strong>（保证 Token 成本假设合理）</div>
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);color:var(--red);font-weight:600">
+            ⚠️ 低于红线 = 项目不可持续，需要重大调整或暂停
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--text2)">
+            💡 红线计算公式：月留存率 = 1 - (贡献利润 / CAC)
+          </div>
+        </div>
+      </div>
+
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>时间</th>
+            <th>D1 目标</th>
+            <th>D7 目标</th>
+            <th>日均消息</th>
+            <th>双人活跃率</th>
+            <th>判定标准</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="background:rgba(214,48,49,0.04)">
+            <td><strong style="color:var(--red)">财务红线</strong></td>
+            <td style="color:var(--text2)">任何阶段</td>
+            <td><strong style="color:var(--red)">≥ 30%</strong></td>
+            <td><strong style="color:var(--red)">≥ 20%</strong></td>
+            <td><strong style="color:var(--red)">≥ 15条</strong></td>
+            <td style="color:var(--text2)">-</td>
+            <td style="font-size:11px;color:var(--red)">低于此线项目不可持续</td>
+          </tr>
+          <tr>
+            <td><strong>4月验证期</strong></td>
+            <td>4月1-30日</td>
+            <td>30-40%</td>
+            <td>20-25%</td>
+            <td>15-20条</td>
+            <td>≥ 60%</td>
+            <td><span class="tag warn">验证 MVP 可行性</span></td>
+          </tr>
+          <tr>
+            <td><strong>5月优化期</strong></td>
+            <td>5月1-31日</td>
+            <td>35-45%</td>
+            <td>25-30%</td>
+            <td>20-25条</td>
+            <td>≥ 65%</td>
+            <td><span class="tag warn">迭代产品体验</span></td>
+          </tr>
+          <tr>
+            <td><strong>6月上线</strong></td>
+            <td>6月1日起</td>
+            <td>≥ 40%</td>
+            <td>≥ 30%</td>
+            <td>≥ 25条</td>
+            <td>≥ 70%</td>
+            <td><span class="tag ok">正式推广</span></td>
+          </tr>
+          <tr>
+            <td><strong>健康状态</strong></td>
+            <td>长期目标</td>
+            <td>≥ 50%</td>
+            <td>≥ 35%</td>
+            <td>≥ 30条</td>
+            <td>≥ 75%</td>
+            <td><span class="tag ok">可持续增长</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:16px;padding:12px;background:var(--surface2);border-radius:6px;font-size:12px;color:var(--text2);line-height:1.7">
+        <strong style="color:var(--text)">指标说明：</strong><br>
+        • <strong>D1（次日留存）</strong>：第2天还在用的用户比例，反映产品第一印象<br>
+        • <strong>D7（七日留存）</strong>：第7天还在用的用户比例，反映产品粘性<br>
+        • <strong>日均消息</strong>：每个活跃用户每天发送的消息数，影响 Token 成本<br>
+        • <strong>双人活跃率</strong>：情侣双方都在用的比例（不是单方面使用）<br>
+        • <strong>财务红线推导</strong>：D1 30% → D7 20% → D30 32.5% → 月留存 32.5% → LTV/CAC ≥ 1.0
+      </div>
+    </div>
+
+    <!-- 留存 → LTV 推算表 -->
+    <div class="card full">
+      <div class="card-title">月留存率 → LTV（用户生命周期价值）推算表</div>
+      <table class="data-table" id="ltvTable">
+        <thead>
+          <tr>
+            <th>月留存率</th>
+            <th>平均生命周期</th>
+            <th>LTV（生命周期价值）</th>
+            <th>LTV/CAC（价值/获客成本）</th>
+            <th>CAC 回本（获客成本回收）</th>
+            <th>判定</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 12 个月预测 -->
+    <div class="card full">
+      <div class="card-title">12 个月收入 vs 成本预测</div>
+      <div class="bar-chart" id="barChart"></div>
+      <div class="legend">
+        <span class="l-rev">MRR（月经常性收入）</span>
+        <span class="l-cost">月成本</span>
+      </div>
+
+      <div style="margin-top: 20px">
+        <div class="section-label">起始 MAU（6月）</div>
+        <div class="field">
+          <label>6 月初始 MAU（月活跃用户数）</label>
+          <div class="input-wrap">
+            <input type="number" id="startMAU" value="15000" step="1000" min="100">
+          </div>
+        </div>
+        <div class="field">
+          <label>月增长率</label>
+          <div class="input-wrap">
+            <input type="number" id="growthRate" value="40" min="0" max="200" step="5"> <span class="unit">%</span>
+          </div>
+        </div>
+      </div>
+
+      <table class="data-table" id="projectionTable" style="margin-top:12px">
+        <thead>
+          <tr>
+            <th>月份</th>
+            <th>MAU（月活）</th>
+            <th>付费用户</th>
+            <th>MRR（月收入）</th>
+            <th>月成本</th>
+            <th>月利润</th>
+            <th>累计利润</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <!-- 敏感性分析 -->
+    <div class="card full">
+      <div class="card-title">敏感性分析 — 哪个因素对盈亏平衡影响最大</div>
+      <table class="data-table" id="sensitivityTable">
+        <thead>
+          <tr>
+            <th>变化因素</th>
+            <th>当前值</th>
+            <th>变化后</th>
+            <th>盈亏平衡点变化</th>
+            <th>影响排名</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <footer>LumiLumi 成本推导计算器 v1.0 · 数据仅供参考 · 2026-04-09</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const v = id => parseFloat($(id).value) || 0;
+const fmt = n => n >= 10000 ? (n/10000).toFixed(1) + '万' : n.toLocaleString('zh-CN');
+const fmtY = n => '¥' + n.toFixed(n < 10 ? 2 : 0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+function calc() {
+  // --- Inputs ---
+  const teamSize = v('teamSize');
+  const avgSalary = v('avgSalary');
+  const serverCost = v('serverCost');
+  const otherCost = v('otherCost');
+  const priceBasic = v('priceBasic');
+  const pricePro = v('pricePro');
+  const ratioBasic = v('ratioBasic') / 100;
+  const convRate = v('conversionRate') / 100;
+  const dressUpRate = v('dressUpRate') / 100;
+  const dressUpArppu = v('dressUpArppu');
+  const txRate = v('txRate') / 100;
+  const txGMV = v('txGMV');
+  const txCommission = v('txCommission') / 100;
+  const msgPerDay = v('msgPerDay');
+  const tokensPerMsg = v('tokensPerMsg');
+  const inputPrice = v('inputPrice');
+  const outputPrice = v('outputPrice');
+  const serverPerUser = v('serverPerUser');
+  const bandwidthPerUser = v('bandwidthPerUser');
+  const cacOrganic = v('cacOrganic');
+  const ratioOrganic = v('ratioOrganic') / 100;
+  const cacPaid = v('cacPaid');
+  const d1 = v('d1') / 100;
+  const d7 = v('d7') / 100;
+  const startMAU = v('startMAU');
+  const growthRate = v('growthRate') / 100;
+
+  // --- Fixed cost ---
+  const totalSalary = teamSize * avgSalary;
+  const fixedCost = totalSalary + serverCost + otherCost;
+  $('fixedCostTotal').textContent = fmtY(fixedCost) + ' /月';
+
+  // --- ARPU (综合，均摊到每个 MAU) ---
+  const ratioPro = 1 - ratioBasic;
+  const subArpu = priceBasic * ratioBasic + pricePro * ratioPro; // 订阅 ARPU（每付费用户）
+  const subPerMAU = subArpu * convRate; // 订阅收入均摊到每 MAU
+  const dressUpPerMAU = dressUpRate * dressUpArppu; // 装扮收入均摊到每 MAU
+  const txPerMAU = txRate * txGMV * txCommission; // 抽佣收入均摊到每 MAU
+  const arpu = subPerMAU + dressUpPerMAU + txPerMAU; // 综合 ARPU（每 MAU）
+  $('subArpuResult').textContent = fmtY(subArpu) + ' /月';
+  $('dressUpResult').textContent = fmtY(dressUpPerMAU) + ' /MAU';
+  $('txResult').textContent = fmtY(txPerMAU) + ' /MAU';
+  $('arpuResult').textContent = fmtY(arpu) + ' /MAU';
+
+  // --- Token cost ---
+  const monthlyTokens = msgPerDay * tokensPerMsg * 30;
+  const inputTokens = monthlyTokens * 0.4;
+  const outputTokens = monthlyTokens * 0.6;
+  const tokenCost = (inputTokens * inputPrice + outputTokens * outputPrice) / 1000000;
+  const varCost = tokenCost + serverPerUser + bandwidthPerUser;
+  $('tokenCostResult').textContent = fmtY(tokenCost);
+  $('varCostResult').textContent = fmtY(varCost) + ' /月';
+
+  // --- Contribution (per MAU) ---
+  const contribution = arpu - varCost;
+  $('contributionResult').textContent = fmtY(contribution) + ' /MAU';
+  $('contributionResult').className = 'result' + (contribution > 0 ? '' : ' bad');
+
+  // --- CAC ---
+  const cac = cacOrganic * ratioOrganic + cacPaid * (1 - ratioOrganic);
+  $('cacResult').textContent = fmtY(cac);
+
+  // --- Retention ---
+  const d30 = d1 * 0.65;
+  const paidRetention = Math.min(d30 + 0.20, 0.99);
+  $('d30Result').textContent = (d30 * 100).toFixed(1) + '%';
+  $('paidRetentionResult').textContent = (paidRetention * 100).toFixed(1) + '%';
+
+  // --- LTV (per MAU, based on overall retention d30) ---
+  const avgLife = 1 / (1 - d30);
+  const ltv = contribution * avgLife;
+  const ltvCac = cac > 0 ? ltv / cac : 0;
+  const payback = contribution > 0 ? cac / contribution : Infinity;
+
+  // Breakeven (in MAU, since arpu is already per MAU)
+  const cacMonthly = cac / 12;
+  const netContrib = contribution - cacMonthly;
+  const beMAU = netContrib > 0 ? Math.ceil(fixedCost / netContrib) : Infinity;
+
+  // --- KPIs ---
+  $('kpi_ltv').textContent = fmtY(ltv);
+  $('kpi_ltv').style.color = ltv > cac ? 'var(--green)' : 'var(--red)';
+
+  $('kpi_ratio').textContent = ltvCac.toFixed(2);
+  $('kpi_ratio').style.color = ltvCac >= 3 ? 'var(--green)' : ltvCac >= 1 ? 'var(--yellow)' : 'var(--red)';
+
+  $('kpi_breakeven').textContent = beMAU < 9999999 ? fmt(beMAU) : '---';
+  $('kpi_payback').textContent = payback < 999 ? payback.toFixed(1) + ' 月' : '---';
+
+  // --- Traffic light (removed, replaced by milestone table) ---
+
+  // --- LTV Table (以月留存率为维度，标注红线) ---
+  // 计算真正的财务红线：LTV/CAC = 1.0 时的月留存率
+  const redlineRetention = cac > 0 && contribution > 0 ? Math.max(0, 1 - contribution/cac) : 0;
+
+  const retentions = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, redlineRetention, d30];
+  const uniqueR = [...new Set(retentions.map(r => Math.round(r*1000)/1000))].sort((a, b) => a - b);
+  const tbody = $('ltvTable').querySelector('tbody');
+  tbody.innerHTML = '';
+  uniqueR.forEach(r => {
+    if (r <= 0 || r >= 1) return;
+    const life = 1 / (1 - r);
+    const ltvR = contribution * life;
+    const ratio = cac > 0 ? ltvR / cac : 0;
+    const pb = contribution > 0 ? cac / contribution : Infinity;
+    const isCurrent = Math.abs(r - d30) < 0.005;
+    const isRedline = Math.abs(r - redlineRetention) < 0.005;
+    let tag, tagClass;
+    if (ratio >= 3) { tag = '优秀'; tagClass = 'ok'; }
+    else if (ratio >= 1) { tag = '可接受'; tagClass = 'warn'; }
+    else { tag = '不可持续'; tagClass = 'bad'; }
+
+    let rowStyle = '';
+    let marker = '';
+    if (isRedline) {
+      rowStyle = 'background:rgba(214,48,49,0.06);border-left:3px solid var(--red)';
+      marker = ' 🚨 财务红线';
+    } else if (isCurrent) {
+      rowStyle = 'background:rgba(88,86,214,0.06)';
+      marker = ' ◀ 当前';
+    }
+
+    tbody.innerHTML += `
+      <tr style="${rowStyle}">
+        <td><strong>${(r*100).toFixed(1)}%</strong>${marker}</td>
+        <td>${life.toFixed(1)} 月</td>
+        <td>${fmtY(ltvR)}</td>
+        <td><strong>${ratio.toFixed(2)}</strong></td>
+        <td>${pb < 999 ? pb.toFixed(1) + ' 月' : '---'}</td>
+        <td><span class="tag ${tagClass}">${tag}</span></td>
+      </tr>`;
+  });
+
+  // --- 12 month projection ---
+  const projTbody = $('projectionTable').querySelector('tbody');
+  projTbody.innerHTML = '';
+  const chartEl = $('barChart');
+  chartEl.innerHTML = '';
+
+  const months = ['6月','7月','8月','9月','10月','11月','12月','1月','2月','3月','4月','5月'];
+  let cumProfit = 0;
+  let maxVal = 0;
+  const projData = [];
+
+  // Pre-calculate max for bar scaling
+  for (let i = 0; i < 12; i++) {
+    const mau = Math.round(startMAU * Math.pow(1 + growthRate, i));
+    const paidUsers = Math.round(mau * convRate);
+    const mrr = mau * arpu; // 综合收入 = MAU × 每MAU综合ARPU
+    const cost = fixedCost + mau * varCost;
+    maxVal = Math.max(maxVal, mrr, cost);
+    projData.push({ mau, paidUsers, mrr, cost });
+  }
+
+  projData.forEach((d, i) => {
+    const profit = d.mrr - d.cost;
+    cumProfit += profit;
+    const profitColor = profit >= 0 ? 'var(--green)' : 'var(--red)';
+    projTbody.innerHTML += `
+      <tr${profit >= 0 && i > 0 && projData[i-1].mrr - projData[i-1].cost < 0 ? ' class="highlight"' : ''}>
+        <td>${months[i]}</td>
+        <td>${fmt(d.mau)}</td>
+        <td>${fmt(d.paidUsers)}</td>
+        <td>${fmtY(d.mrr)}</td>
+        <td>${fmtY(d.cost)}</td>
+        <td style="color:${profitColor};font-weight:600">${profit >= 0 ? '+' : ''}${fmtY(profit)}</td>
+        <td style="color:${cumProfit >= 0 ? 'var(--green)' : 'var(--text2)'}">${cumProfit >= 0 ? '+' : ''}${fmtY(cumProfit)}</td>
+      </tr>`;
+
+    const rH = maxVal > 0 ? (d.mrr / maxVal * 100) : 0;
+    const cH = maxVal > 0 ? (d.cost / maxVal * 100) : 0;
+    chartEl.innerHTML += `
+      <div class="bar-item">
+        <div class="bar-val" style="color:var(--green)">${d.mrr >= 10000 ? (d.mrr/10000).toFixed(0) + '万' : ''}</div>
+        <div class="bar revenue" style="height:${rH}%"></div>
+        <div class="bar-label">${months[i]}</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-val" style="color:var(--red);opacity:0.6">${d.cost >= 10000 ? (d.cost/10000).toFixed(0) + '万' : ''}</div>
+        <div class="bar cost" style="height:${cH}%"></div>
+        <div class="bar-label"></div>
+      </div>`;
+  });
+
+  // --- Sensitivity ---
+  const sensTbody = $('sensitivityTable').querySelector('tbody');
+  sensTbody.innerHTML = '';
+  const baseBE = beUsers;
+
+  const scenarios = [
+    { name: 'ARPU（每用户收入）+¥10', curr: fmtY(arpu), changed: fmtY(arpu+10),
+      be: netContrib + 10 > 0 ? Math.ceil(fixedCost / (netContrib + 10)) : Infinity },
+    { name: '固定成本（工资+服务器）-20%', curr: fmtY(fixedCost), changed: fmtY(fixedCost*0.8),
+      be: netContrib > 0 ? Math.ceil(fixedCost*0.8 / netContrib) : Infinity },
+    { name: 'CAC（获客成本）-30%', curr: fmtY(cac), changed: fmtY(cac*0.7),
+      be: (contribution - cac*0.7/12) > 0 ? Math.ceil(fixedCost / (contribution - cac*0.7/12)) : Infinity },
+    { name: '可变成本（Token+服务器）-50%', curr: fmtY(varCost), changed: fmtY(varCost*0.5),
+      be: (() => { const nc2 = (arpu - varCost*0.5) - cacMonthly; return nc2 > 0 ? Math.ceil(fixedCost/nc2) : Infinity; })() },
+  ];
+
+  const ranked = scenarios.map(s => ({ ...s, delta: baseBE - s.be })).sort((a,b) => b.delta - a.delta);
+  ranked.forEach((s, i) => {
+    sensTbody.innerHTML += `
+      <tr>
+        <td>${s.name}</td>
+        <td>${s.curr}</td>
+        <td>${s.changed}</td>
+        <td style="color:var(--green);font-weight:600">${s.delta > 0 ? '-' + s.delta + ' 人' : '+' + Math.abs(s.delta) + ' 人'}</td>
+        <td>第 ${i+1}</td>
+      </tr>`;
+  });
+}
+
+// Bind all inputs (removed, handled in config management section)
+
+// --- Config Management ---
+const CONFIG_KEY = 'lumilumi_configs';
+const CURRENT_KEY = 'lumilumi_current';
+
+function getAllInputs() {
+  const inputs = {};
+  document.querySelectorAll('input[type="number"]').forEach(el => {
+    inputs[el.id] = parseFloat(el.value) || 0;
+  });
+  return inputs;
+}
+
+function setAllInputs(inputs) {
+  Object.keys(inputs).forEach(id => {
+    const el = $(id);
+    if (el) el.value = inputs[id];
+  });
+  calc();
+}
+
+function loadConfigs() {
+  const stored = localStorage.getItem(CONFIG_KEY);
+  return stored ? JSON.parse(stored) : { 'default': getAllInputs() };
+}
+
+function saveConfigs(configs) {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(configs));
+}
+
+function loadCurrentConfig() {
+  return localStorage.getItem(CURRENT_KEY) || 'default';
+}
+
+function saveCurrentConfig(name) {
+  localStorage.setItem(CURRENT_KEY, name);
+}
+
+function updateConfigSelect() {
+  const configs = loadConfigs();
+  const select = $('configSelect');
+  const current = loadCurrentConfig();
+  select.innerHTML = '';
+  Object.keys(configs).forEach(name => {
+    const opt = document.createElement('option');
+    opt.value = name;
+    opt.textContent = name;
+    if (name === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+function saveConfig() {
+  const name = $('configSelect').value;
+  const configs = loadConfigs();
+  configs[name] = getAllInputs();
+  saveConfigs(configs);
+  alert(`✅ 配置 "${name}" 已保存`);
+}
+
+function newConfig() {
+  const name = prompt('请输入新配置名称（例如：保守方案、激进方案、张三的预测）：');
+  if (!name || name.trim() === '') return;
+  const trimmed = name.trim();
+  const configs = loadConfigs();
+  if (configs[trimmed]) {
+    alert('❌ 配置名称已存在，请换一个名字');
+    return;
+  }
+  configs[trimmed] = getAllInputs();
+  saveConfigs(configs);
+  saveCurrentConfig(trimmed);
+  updateConfigSelect();
+  alert(`✅ 新配置 "${trimmed}" 已创建`);
+}
+
+function deleteConfig() {
+  const name = $('configSelect').value;
+  if (name === 'default') {
+    alert('❌ 默认配置不能删除');
+    return;
+  }
+  if (!confirm(`确定删除配置 "${name}"？`)) return;
+  const configs = loadConfigs();
+  delete configs[name];
+  saveConfigs(configs);
+  saveCurrentConfig('default');
+  updateConfigSelect();
+  setAllInputs(configs['default']);
+  alert(`✅ 配置 "${name}" 已删除`);
+}
+
+function exportConfig() {
+  const name = $('configSelect').value;
+  const configs = loadConfigs();
+  const data = { name, config: configs[name] };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lumilumi-${name}-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function shareURL() {
+  const inputs = getAllInputs();
+  const compressed = btoa(JSON.stringify(inputs));
+  const url = window.location.origin + window.location.pathname + '?config=' + compressed;
+
+  // 复制到剪贴板
+  navigator.clipboard.writeText(url).then(() => {
+    alert('🔗 分享链接已复制到剪贴板！\n\n发送给团队成员，他们打开链接就能看到你的配置。\n\n链接长度：' + url.length + ' 字符');
+  }).catch(() => {
+    // 降级方案：显示链接让用户手动复制
+    prompt('🔗 分享链接（Ctrl+C 复制）：', url);
+  });
+}
+
+function importConfig() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'application/json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (!data.name || !data.config) throw new Error('格式错误');
+        const configs = loadConfigs();
+        let finalName = data.name;
+        if (configs[finalName]) {
+          finalName = prompt(`配置 "${data.name}" 已存在，请输入新名称：`, data.name + '-导入');
+          if (!finalName || finalName.trim() === '') return;
+          finalName = finalName.trim();
+        }
+        configs[finalName] = data.config;
+        saveConfigs(configs);
+        saveCurrentConfig(finalName);
+        updateConfigSelect();
+        setAllInputs(data.config);
+        alert(`✅ 配置 "${finalName}" 已导入`);
+      } catch (err) {
+        alert('❌ 导入失败：' + err.message);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// Switch config
+$('configSelect').addEventListener('change', e => {
+  const name = e.target.value;
+  const configs = loadConfigs();
+  if (configs[name]) {
+    setAllInputs(configs[name]);
+    saveCurrentConfig(name);
+  }
+});
+
+// Auto-save on input change
+document.querySelectorAll('input[type="number"]').forEach(el => {
+  el.addEventListener('input', () => {
+    calc();
+    // Auto-save current config
+    const name = $('configSelect').value;
+    const configs = loadConfigs();
+    configs[name] = getAllInputs();
+    saveConfigs(configs);
+  });
+});
+
+// Load URL params on page load
+function loadFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const configParam = params.get('config');
+  if (configParam) {
+    try {
+      const decoded = JSON.parse(atob(configParam));
+      setAllInputs(decoded);
+      // 提示用户这是从链接加载的配置
+      setTimeout(() => {
+        const save = confirm('📥 检测到分享链接中的配置！\n\n是否保存为新配置？（点击"取消"仅临时查看）');
+        if (save) {
+          const name = prompt('请输入配置名称：', '团队分享-' + new Date().toISOString().slice(5,10));
+          if (name && name.trim()) {
+            const configs = loadConfigs();
+            configs[name.trim()] = decoded;
+            saveConfigs(configs);
+            saveCurrentConfig(name.trim());
+            updateConfigSelect();
+            // 清除 URL 参数
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }
+        }
+      }, 500);
+    } catch (err) {
+      console.error('URL 参数解析失败:', err);
+    }
+  }
+}
+
+// Init
+updateConfigSelect();
+const current = loadCurrentConfig();
+const configs = loadConfigs();
+if (configs[current]) {
+  setAllInputs(configs[current]);
+} else {
+  calc();
+}
+loadFromURL();
+</script>
+</body>
+</html>
+}
+</script>
+</body>
+</html>
