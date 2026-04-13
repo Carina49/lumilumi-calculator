@@ -268,20 +268,23 @@
     display: flex;
     align-items: flex-end;
     gap: 12px;
-    height: 120px;
+    height: 160px;
     padding-top: 8px;
+    padding-bottom: 8px;
   }
   .bar-group {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
+    min-width: 0;
   }
   .bar-group > div:first-child {
     display: flex;
     gap: 4px;
     width: 100%;
+    height: 140px;
     align-items: flex-end;
   }
   .bar-item {
@@ -290,9 +293,11 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-end;
+    min-width: 0;
   }
   .bar {
     width: 100%;
+    min-width: 10px;
     border-radius: 4px 4px 0 0;
     transition: height 0.4s ease;
     min-height: 2px;
@@ -300,16 +305,19 @@
   .bar.revenue { background: var(--green); }
   .bar.cost { background: var(--red); }
   .bar-label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text2);
     margin-top: 4px;
     text-align: center;
+    white-space: nowrap;
   }
   .bar-val {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text);
-    margin-bottom: 3px;
+    margin-bottom: 4px;
     font-weight: 600;
+    white-space: nowrap;
+    text-align: center;
   }
 
   .legend {
@@ -1051,15 +1059,22 @@ function calc() {
 
     const rH = maxVal > 0 ? (d.mrr / maxVal * 100) : 0;
     const cH = maxVal > 0 ? (d.cost / maxVal * 100) : 0;
+
+    // 格式化数值显示：>= 1万显示"X万"，否则显示"X"
+    const mrrLabel = d.mrr >= 10000 ? (d.mrr/10000).toFixed(1) + '万' : d.mrr.toFixed(0);
+    const costLabel = d.cost >= 10000 ? (d.cost/10000).toFixed(1) + '万' : d.cost.toFixed(0);
+
     chartEl.innerHTML += `
       <div class="bar-group">
-        <div class="bar-item">
-          <div class="bar-val" style="color:var(--green)">${d.mrr >= 10000 ? (d.mrr/10000).toFixed(0) + '万' : ''}</div>
-          <div class="bar revenue" style="height:${rH}%"></div>
-        </div>
-        <div class="bar-item">
-          <div class="bar-val" style="color:var(--red)">${d.cost >= 10000 ? (d.cost/10000).toFixed(0) + '万' : ''}</div>
-          <div class="bar cost" style="height:${cH}%"></div>
+        <div>
+          <div class="bar-item">
+            <div class="bar-val" style="color:var(--green)">${mrrLabel}</div>
+            <div class="bar revenue" style="height:${rH}%"></div>
+          </div>
+          <div class="bar-item">
+            <div class="bar-val" style="color:var(--red)">${costLabel}</div>
+            <div class="bar cost" style="height:${cH}%"></div>
+          </div>
         </div>
         <div class="bar-label">${months[i]}</div>
       </div>`;
