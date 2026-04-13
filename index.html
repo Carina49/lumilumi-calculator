@@ -498,6 +498,12 @@
         </div>
       </div>
       <div class="field">
+        <label>输入 Token 占比</label>
+        <div class="input-wrap">
+          <input type="number" id="inputRatio" value="40" min="0" max="100" step="5"> <span class="unit">%</span>
+        </div>
+      </div>
+      <div class="field">
         <label>输入 Token 单价</label>
         <div class="input-wrap">
           <span class="unit">¥</span><input type="number" id="inputPrice" value="0.30" step="0.01" min="0"> <span class="unit">/M</span>
@@ -574,11 +580,11 @@
       </div>
       <div class="divider"></div>
       <div class="field">
-        <label>推算 D30（30天留存，全体用户）</label>
+        <label>推算 D30（30天留存，全体用户）<br><span style="font-size:11px;color:var(--orange)">⚠️ 公式：D1 × 0.65，仅供参考</span></label>
         <div class="result" id="d30Result">--</div>
       </div>
       <div class="field">
-        <label>付费用户月留存</label>
+        <label>付费用户月留存（估算）<br><span style="font-size:11px;color:var(--text2)">D30 + 20%，上限99%</span></label>
         <div class="result" id="paidRetentionResult">--</div>
       </div>
     </div>
@@ -600,7 +606,14 @@
             ⚠️ 低于红线 = 项目不可持续，需要重大调整或暂停
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--text2)">
-            💡 红线计算公式：月留存率 = 1 - (贡献利润 / CAC)
+            💡 红线计算公式：<strong>月流失率上限 = 贡献利润 / CAC</strong><br>
+            &nbsp;&nbsp;&nbsp;即：月留存率下限 = 1 - (贡献利润 / CAC)
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:var(--orange);background:rgba(196,78,40,0.08);padding:8px;border-radius:4px">
+            ⚠️ <strong>重要说明</strong>：<br>
+            • D30 是"第30天仍在使用的用户比例"，<strong>不等于月留存率</strong><br>
+            • 月留存率 = 本月活跃用户中下月依然活跃的比例<br>
+            • 下方 LTV 表格使用 D30×0.65 作为月留存率的<strong>粗略估算</strong>，实际应以真实月留存数据为准
           </div>
         </div>
       </div>
@@ -787,6 +800,7 @@ const validationRules = {
   txCommission: { min: 0, max: 100, name: '抽佣比例', isPercent: true },
   msgPerDay: { min: 1, max: 1000, name: '日均消息数' },
   tokensPerMsg: { min: 10, max: 10000, name: '每条消息Token' },
+  inputRatio: { min: 0, max: 100, name: '输入Token占比', isPercent: true },
   inputPrice: { min: 0, max: 100, name: '输入Token单价' },
   outputPrice: { min: 0, max: 100, name: '输出Token单价' },
   serverPerUser: { min: 0, max: 100, name: '服务器扩容/用户' },
@@ -893,9 +907,11 @@ function calc() {
   $('arpuResult').textContent = fmtY(arpu) + ' /MAU';
 
   // --- Token cost ---
+  const inputRatio = v('inputRatio') / 100;
+  const outputRatio = 1 - inputRatio; // 输出比例 = 1 - 输入比例
   const monthlyTokens = msgPerDay * tokensPerMsg * 30;
-  const inputTokens = monthlyTokens * 0.4;
-  const outputTokens = monthlyTokens * 0.6;
+  const inputTokens = monthlyTokens * inputRatio;
+  const outputTokens = monthlyTokens * outputRatio;
   const tokenCost = (inputTokens * inputPrice + outputTokens * outputPrice) / 1000000;
   const varCost = tokenCost + serverPerUser + bandwidthPerUser;
   $('tokenCostResult').textContent = fmtY(tokenCost);
