@@ -268,23 +268,22 @@
     display: flex;
     align-items: flex-end;
     gap: 12px;
-    height: 160px;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    height: 200px;
+    padding: 8px 0;
   }
   .bar-group {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     min-width: 0;
   }
-  .bar-group > div:first-child {
+  .bar-pair {
     display: flex;
     gap: 4px;
     width: 100%;
-    height: 140px;
+    height: 120px;
     align-items: flex-end;
   }
   .bar-item {
@@ -292,8 +291,13 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: flex-end;
     min-width: 0;
+  }
+  .bar-track {
+    width: 100%;
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
   }
   .bar {
     width: 100%;
@@ -304,20 +308,21 @@
   }
   .bar.revenue { background: var(--green); }
   .bar.cost { background: var(--red); }
+
+  .bar-values {
+    display: flex;
+    gap: 8px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
   .bar-label {
     font-size: 11px;
     color: var(--text2);
-    margin-top: 4px;
+    margin-top: 2px;
     text-align: center;
     white-space: nowrap;
-  }
-  .bar-val {
-    font-size: 11px;
-    color: var(--text);
-    margin-bottom: 4px;
-    font-weight: 600;
-    white-space: nowrap;
-    text-align: center;
   }
 
   .legend {
@@ -1066,15 +1071,21 @@ function calc() {
 
     chartEl.innerHTML += `
       <div class="bar-group">
-        <div>
+        <div class="bar-pair">
           <div class="bar-item">
-            <div class="bar-val" style="color:var(--green)">${mrrLabel}</div>
-            <div class="bar revenue" style="height:${rH}%"></div>
+            <div class="bar-track">
+              <div class="bar revenue" style="height:${rH}%"></div>
+            </div>
           </div>
           <div class="bar-item">
-            <div class="bar-val" style="color:var(--red)">${costLabel}</div>
-            <div class="bar cost" style="height:${cH}%"></div>
+            <div class="bar-track">
+              <div class="bar cost" style="height:${cH}%"></div>
+            </div>
           </div>
+        </div>
+        <div class="bar-values">
+          <span style="color:var(--green)">${mrrLabel}</span>
+          <span style="color:var(--red)">${costLabel}</span>
         </div>
         <div class="bar-label">${months[i]}</div>
       </div>`;
