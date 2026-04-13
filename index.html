@@ -329,8 +329,8 @@
     margin-right: 4px;
     vertical-align: middle;
   }
-  .legend .l-rev::before { background: var(--red); }
-  .legend .l-cost::before { background: var(--green); opacity: 0.35; }
+  .legend .l-rev::before { background: var(--green); }
+  .legend .l-cost::before { background: var(--red); opacity: 0.35; }
 
   footer {
     text-align: center;
@@ -375,7 +375,7 @@
     </div>
     <div class="kpi">
       <div class="kpi-value" id="kpi_breakeven" style="color:var(--yellow)">--</div>
-      <div class="kpi-label">盈亏平衡 MAU（月活用户数）</div>
+      <div class="kpi-label">盈亏平衡 MAU（含 CAC 月摊销）</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" id="kpi_payback" style="color:var(--orange)">--</div>
@@ -698,7 +698,7 @@
         • <strong>D7（七日留存）</strong>：第7天还在用的用户比例，反映产品粘性<br>
         • <strong>日均消息</strong>：每个活跃用户每天发送的消息数，影响 Token 成本<br>
         • <strong>双人活跃率</strong>：情侣双方都在用的比例（不是单方面使用）<br>
-        • <strong>财务红线推导</strong>：D1 30% → D7 20% → D30 32.5% → 月留存 32.5% → LTV/CAC ≥ 1.0
+        • <strong>财务红线推导</strong>：基于 LTV/CAC ≥ 1.0 倒推最低月留存率要求
       </div>
     </div>
 
@@ -946,8 +946,9 @@ function calc() {
   $('d30Result').textContent = (d30 * 100).toFixed(1) + '%';
   $('paidRetentionResult').textContent = (paidRetention * 100).toFixed(1) + '%';
 
-  // --- LTV (per MAU, based on overall retention d30) ---
-  const avgLife = 1 / (1 - d30);
+  // --- LTV (per MAU, based on monthly retention estimated from d30) ---
+  const monthlyRetention = d30 * 0.65; // 月留存率 = D30 × 0.65（粗略估算）
+  const avgLife = 1 / (1 - monthlyRetention);
   const ltv = contribution * avgLife;
   const ltvCac = cac > 0 ? ltv / cac : 0;
   const payback = contribution > 0 ? cac / contribution : Infinity;
@@ -974,7 +975,7 @@ function calc() {
   // 计算真正的财务红线：LTV/CAC = 1.0 时的月留存率
   const redlineRetention = cac > 0 && contribution > 0 ? Math.max(0, 1 - contribution/cac) : 0;
 
-  const retentions = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, redlineRetention, d30];
+  const retentions = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.50, 0.60, redlineRetention, monthlyRetention];
   const uniqueR = [...new Set(retentions.map(r => Math.round(r*1000)/1000))].sort((a, b) => a - b);
   const tbody = $('ltvTable').querySelector('tbody');
   tbody.innerHTML = '';
@@ -984,7 +985,7 @@ function calc() {
     const ltvR = contribution * life;
     const ratio = cac > 0 ? ltvR / cac : 0;
     const pb = contribution > 0 ? cac / contribution : Infinity;
-    const isCurrent = Math.abs(r - d30) < 0.005;
+    const isCurrent = Math.abs(r - monthlyRetention) < 0.005;
     const isRedline = Math.abs(r - redlineRetention) < 0.005;
     let tag, tagClass;
     if (ratio >= 3) { tag = '优秀'; tagClass = 'ok'; }
@@ -1124,13 +1125,13 @@ function calc() {
   insights.push(`<div>🎯 <strong>最敏感因素：${topFactor.name}</strong> — 该因素变化可使盈亏平衡点降低 ${Math.abs(topFactor.delta)} 人，优先优化此项。</div>`);
 
   // 4. 留存率影响
-  const retentionImpact = d30 > 0 ? (ltv / d30 * 0.1) : 0;
-  insights.push(`<div>📈 <strong>留存率影响</strong> — 当前月留存 ${(d30*100).toFixed(1)}%，每提升 10% 留存率，LTV 增加约 ${fmtY(retentionImpact)}。</div>`);
+  const retentionImpact = monthlyRetention > 0 ? (ltv / monthlyRetention * 0.1) : 0;
+  insights.push(`<div>📈 <strong>留存率影响</strong> — 当前月留存 ${(monthlyRetention*100).toFixed(1)}%（基于 D30×0.65 估算），每提升 10% 留存率，LTV 增加约 ${fmtY(retentionImpact)}。</div>`);
 
   // 5. 优化建议
   if (ltvCac < 3) {
     const suggestions = [];
-    if (d30 < 0.40) suggestions.push('提升产品粘性（目标月留存 40%+）');
+    if (monthlyRetention < 0.40) suggestions.push('提升产品粘性（目标月留存 40%+）');
     if (cac > 100) suggestions.push('优化获客渠道（降低 CAC）');
     if (arpu < 5) suggestions.push('提升变现能力（增加 ARPU）');
     if (varCost > arpu * 0.5) suggestions.push('降低可变成本（Token 优化）');
