@@ -637,9 +637,9 @@
           </div>
           <div style="margin-top:8px;font-size:12px;color:var(--orange);background:rgba(196,78,40,0.08);padding:8px;border-radius:4px">
             ⚠️ <strong>重要说明</strong>：<br>
-            • D30 是"第30天仍在使用的用户比例"，<strong>不等于月留存率</strong><br>
+            • D30 是"第30天仍在使用的用户比例"，在稳态下接近"月留存率"<br>
             • 月留存率 = 本月活跃用户中下月依然活跃的比例<br>
-            • 下方 LTV 表格使用 D30×0.65 作为月留存率的<strong>粗略估算</strong>，实际应以真实月留存数据为准
+            • 下方 LTV 表格直接用 D30 作为月留存率代理，CAC 按真实平均生命周期摊销（与 LTV 同口径），有真实数据时请替换
           </div>
         </div>
       </div>
@@ -960,14 +960,15 @@ function calc() {
   $('paidRetentionResult').textContent = (paidRetention * 100).toFixed(1) + '%';
 
   // --- LTV (per MAU, based on monthly retention estimated from d30) ---
-  const monthlyRetention = d30 * 0.65; // 月留存率 = D30 × 0.65（粗略估算）
-  const avgLife = 1 / (1 - monthlyRetention);
+  const monthlyRetention = d30; // 月留存率 ≈ D30（去掉二次 0.65 打折；D30 本身已经是"30天仍活跃"的代理指标）
+  const avgLife = monthlyRetention < 1 ? 1 / (1 - monthlyRetention) : Infinity;
   const ltv = contribution * avgLife;
   const ltvCac = cac > 0 ? ltv / cac : 0;
   const payback = contribution > 0 ? cac / contribution : Infinity;
 
   // Breakeven (in MAU, since arpu is already per MAU)
-  const cacMonthly = cac / 12;
+  // CAC 按真实平均生命周期摊销，和 LTV 用同一套口径
+  const cacMonthly = avgLife > 0 && isFinite(avgLife) ? cac / avgLife : Infinity;
   const netContrib = contribution - cacMonthly;
   const beMAU = netContrib > 0 ? Math.ceil(fixedCost / netContrib) : Infinity;
 
@@ -1152,7 +1153,7 @@ function calc() {
 
   // 4. 留存率影响
   const retentionImpact = monthlyRetention > 0 ? (ltv / monthlyRetention * 0.1) : 0;
-  insights.push(`<div>📈 <strong>留存率影响</strong> — 当前月留存 ${(monthlyRetention*100).toFixed(1)}%（基于 D30×0.65 估算），每提升 10% 留存率，LTV 增加约 ${fmtY(retentionImpact)}。</div>`);
+  insights.push(`<div>📈 <strong>留存率影响</strong> — 当前月留存 ${(monthlyRetention*100).toFixed(1)}%（取 D30 作为代理值），每提升 10% 留存率，LTV 增加约 ${fmtY(retentionImpact)}。</div>`);
 
   // 5. 优化建议
   if (ltvCac < 3) {
