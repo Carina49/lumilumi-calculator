@@ -193,6 +193,28 @@
     color: var(--text2);
     margin-top: 4px;
   }
+  .kpi .kpi-hint {
+    font-size: 10px;
+    color: var(--text2);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border);
+    line-height: 1.5;
+    text-align: left;
+  }
+  .kpi .kpi-hint.warn {
+    color: var(--red);
+    border-top-color: var(--red);
+    background: rgba(196,78,40,0.06);
+    padding: 6px;
+    border: 1px solid rgba(196,78,40,0.3);
+    border-radius: 4px;
+    margin-top: 6px;
+  }
+  .kpi .kpi-hint .k {
+    color: var(--text);
+    font-weight: 600;
+  }
 
   table.data-table {
     width: 100%;
@@ -380,19 +402,23 @@
       <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50);background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap;letter-spacing:0.5px">&#x2B50; 北极星指标</div>
       <div class="kpi-value" id="kpi_ltv" style="color:var(--green)">--</div>
       <div class="kpi-label">LTV（用户生命周期价值）</div>
+      <div class="kpi-hint" id="kpi_ltv_hint">--</div>
     </div>
     <div class="kpi" style="border:2px solid var(--accent);position:relative">
       <div style="position:absolute;top:-10px;left:50%;transform:translateX(-50);background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 10px;border-radius:10px;white-space:nowrap;letter-spacing:0.5px">&#x2B50; 北极星指标</div>
       <div class="kpi-value" id="kpi_ratio" style="color:var(--accent2)">--</div>
       <div class="kpi-label">LTV / CAC（生命周期价值 / 获客成本）</div>
+      <div class="kpi-hint" id="kpi_ratio_hint">--</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" id="kpi_breakeven" style="color:var(--yellow)">--</div>
       <div class="kpi-label">盈亏平衡 MAU（含 CAC 月摊销）</div>
+      <div class="kpi-hint" id="kpi_breakeven_hint">--</div>
     </div>
     <div class="kpi">
       <div class="kpi-value" id="kpi_payback" style="color:var(--orange)">--</div>
       <div class="kpi-label">CAC 回本周期（获客成本回收时间）</div>
+      <div class="kpi-hint" id="kpi_payback_hint">--</div>
     </div>
   </div>
 
@@ -973,15 +999,66 @@ function calc() {
   const beMAU = netContrib > 0 ? Math.ceil(fixedCost / netContrib) : Infinity;
 
   // --- KPIs ---
+  const avgLifeText = isFinite(avgLife) ? avgLife.toFixed(1) + ' 月' : '∞ 月（留存 100%）';
+
   $('kpi_ltv').textContent = fmtY(ltv);
   $('kpi_ltv').style.color = ltv > cac ? 'var(--green)' : 'var(--red)';
+  let ltvHint;
+  if (contribution <= 0) {
+    ltvHint = `<span class="k">单位经济学亏损</span> · 月贡献 ${fmtY(contribution)}/MAU，LTV 推算无意义`;
+  } else {
+    ltvHint = `月贡献 <span class="k">${fmtY(contribution)}/MAU</span> × 平均生命周期 <span class="k">${avgLifeText}</span>`;
+  }
+  $('kpi_ltv_hint').innerHTML = ltvHint;
+  $('kpi_ltv_hint').className = 'kpi-hint' + (contribution <= 0 ? ' warn' : '');
 
   $('kpi_ratio').textContent = ltvCac.toFixed(2);
   $('kpi_ratio').style.color = ltvCac >= 3 ? 'var(--green)' : ltvCac >= 1 ? 'var(--yellow)' : 'var(--red)';
+  let ratioHint;
+  if (cac <= 0) {
+    ratioHint = `CAC = 0 · 纯自然增长，LTV <span class="k">${fmtY(ltv)}</span> 全部计为净利`;
+  } else if (ltvCac >= 3) {
+    ratioHint = `每投 1 元 CAC 赚回 <span class="k">${ltvCac.toFixed(2)} 元</span> · 健康线 ≥ 3.0`;
+  } else if (ltvCac >= 1) {
+    ratioHint = `每投 1 元 CAC 收回 <span class="k">${ltvCac.toFixed(2)} 元</span> · 红线 ≥ 1.0，目标 ≥ 3.0`;
+  } else {
+    const loss = cac - ltv;
+    ratioHint = `每投 1 元 CAC 只收回 <span class="k">${ltvCac.toFixed(2)} 元</span> · 每获一用户亏 <span class="k">${fmtY(loss)}</span>`;
+  }
+  $('kpi_ratio_hint').innerHTML = ratioHint;
+  $('kpi_ratio_hint').className = 'kpi-hint' + (cac > 0 && ltvCac < 1 ? ' warn' : '');
 
   $('kpi_breakeven').textContent = beMAU < 9999999 ? fmt(beMAU) : '---';
+  let beHint;
+  if (beMAU < 9999999) {
+    beHint = `固定成本 <span class="k">${fmtY(fixedCost)}</span> ÷ (月贡献 <span class="k">${fmtY(contribution)}</span> − CAC 月摊销 <span class="k">${fmtY(cacMonthly)}</span>)`;
+  } else if (contribution <= 0) {
+    beHint = `<span class="k">单位亏损</span> · 月贡献 ${fmtY(contribution)}/MAU，任何规模都无法盈利`;
+  } else {
+    beHint = `CAC 月摊销 <span class="k">${fmtY(cacMonthly)}/MAU</span> 已高于月贡献 <span class="k">${fmtY(contribution)}/MAU</span> · 月边际贡献为负，任何规模都无法盈利`;
+  }
+  $('kpi_breakeven_hint').innerHTML = beHint;
+  $('kpi_breakeven_hint').className = 'kpi-hint' + (beMAU >= 9999999 ? ' warn' : '');
+
   const paybackText = payback < 999 ? payback.toFixed(1) + ' 月' : '⚠️ 过长';
   $('kpi_payback').textContent = paybackText;
+  let payHint;
+  const canRecoup = isFinite(payback) && isFinite(avgLife) && payback <= avgLife;
+  if (cac <= 0) {
+    payHint = `CAC = 0 · 纯自然增长，无需回本`;
+    $('kpi_payback').style.color = 'var(--green)';
+  } else if (!isFinite(payback)) {
+    payHint = `<span class="k">单位亏损</span> · 月贡献 ≤ 0，无法回本`;
+    $('kpi_payback').style.color = 'var(--red)';
+  } else if (!canRecoup) {
+    payHint = `理论 <span class="k">${payback.toFixed(1)} 月</span> = CAC ${fmtY(cac)} ÷ 月贡献 ${fmtY(contribution)}；但用户平均 <span class="k">${avgLifeText}</span> 就流失，<span class="k">实际无法回本</span>`;
+    $('kpi_payback').style.color = 'var(--red)';
+  } else {
+    payHint = `CAC <span class="k">${fmtY(cac)}</span> ÷ 月贡献 <span class="k">${fmtY(contribution)}</span>；用户平均活 <span class="k">${avgLifeText}</span>`;
+    $('kpi_payback').style.color = 'var(--orange)';
+  }
+  $('kpi_payback_hint').innerHTML = payHint;
+  $('kpi_payback_hint').className = 'kpi-hint' + ((!canRecoup && cac > 0) ? ' warn' : '');
 
   // --- Traffic light (removed, replaced by milestone table) ---
 
